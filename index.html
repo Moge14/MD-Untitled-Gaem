@@ -5,12 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Drones of the Dust | OS_BOOT</title>
     <style>
-        /* CSS: The Drone HUD Aesthetic */
+        :root {
+            --gold: #FFD700;
+            --gold-dim: #b39800;
+            --gold-dark: #443a00;
+            --red-warn: #ff4444;
+            --bg-deep: #050505;
+            --bg-game: #0d1117;
+            --text-hud: #FFD700;
+            --portrait-bg: #111;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
         body {
-            background-color: #050505;
-            color: #FFD700; /* Murder Drone Yellow */
+            background: var(--bg-deep);
+            color: var(--gold);
             font-family: 'Courier New', Courier, monospace;
-            margin: 0;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -19,6 +30,7 @@
             text-transform: uppercase;
         }
 
+        /* ─── BOOT SCREEN ─────────────────────────────── */
         #boot-container {
             width: 80%;
             max-width: 500px;
@@ -29,162 +41,1102 @@
             height: 60px;
             margin-bottom: 20px;
             font-size: 1.1rem;
-            letter-spacing: 1px;
+            letter-spacing: 2px;
         }
 
         #progress-wrapper {
             width: 100%;
             height: 8px;
-            border: 1px solid #FFD700;
+            border: 1px solid var(--gold);
             padding: 2px;
-            position: relative;
         }
 
         #bar {
             width: 0%;
             height: 100%;
-            background-color: #FFD700;
+            background: var(--gold);
             transition: width 0.1s linear;
         }
 
-        #percentage {
-            margin-top: 10px;
-            font-weight: bold;
-        }
+        #percentage { margin-top: 10px; font-weight: bold; }
 
-        /* Menu hidden by default */
-        .hidden { display: none; }
+        .hidden { display: none !important; }
 
         .menu-btn {
             background: none;
-            border: 1px solid #FFD700;
-            color: #FFD700;
+            border: 1px solid var(--gold);
+            color: var(--gold);
             padding: 10px 30px;
             font-family: inherit;
+            font-size: 0.9rem;
+            letter-spacing: 2px;
             cursor: pointer;
             margin-top: 20px;
             transition: 0.2s;
+            text-transform: uppercase;
         }
 
-        .menu-btn:hover {
-            background: #FFD700;
-            color: #000;
-        }
+        .menu-btn:hover { background: var(--gold); color: #000; }
+        .menu-btn:disabled { opacity: 0.3; cursor: default; }
+        .menu-btn:disabled:hover { background: none; color: var(--gold); }
 
-        /* Glitch animation for the first boot crash */
         .glitch {
             animation: shake 0.1s infinite;
-            color: #ffffff;
+            color: #fff;
             text-shadow: 2px 0 #ff0000, -2px 0 #00ffff;
         }
 
         @keyframes shake {
-            0% { transform: translate(0); }
-            50% { transform: translate(2px, -2px); }
+            0%   { transform: translate(0); }
+            50%  { transform: translate(2px, -2px); }
             100% { transform: translate(-2px, 2px); }
         }
 
-        /* The Game 'World' (Placeholder) */
-        #game-world {
+        /* ─── GAME WRAPPER ────────────────────────────── */
+        #game-wrapper {
             display: none;
+            position: relative;
+            width: 640px;
+            height: 480px;
+            background: var(--bg-game);
+            border: 1px solid var(--gold-dim);
+            box-shadow: 0 0 40px rgba(255,215,0,0.08);
+            image-rendering: pixelated;
+        }
+
+        #game-canvas {
+            display: block;
+            width: 640px;
+            height: 480px;
+            image-rendering: pixelated;
+        }
+
+        /* ─── HUD ─────────────────────────────────────── */
+        #hud {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .hud-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.65rem;
+            letter-spacing: 1px;
+        }
+
+        .hud-label { color: var(--gold-dim); width: 38px; }
+
+        .hud-bar-wrap {
+            width: 80px;
+            height: 6px;
+            border: 1px solid var(--gold-dim);
+            position: relative;
+        }
+
+        .hud-bar-fill {
+            height: 100%;
+            background: var(--gold);
+            transition: width 0.3s;
+        }
+
+        #oil-fill { background: #a8d4ff; }
+        #scrap-count { color: var(--gold); font-size: 0.65rem; }
+
+        /* Interaction hint */
+        #interact-hint {
+            position: absolute;
+            bottom: 90px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.6rem;
+            letter-spacing: 2px;
+            color: var(--gold-dim);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 10;
+            white-space: nowrap;
+        }
+
+        #interact-hint.visible { opacity: 1; }
+
+        /* ─── DIALOGUE BOX ────────────────────────────── */
+        #dialogue-box {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 120px;
+            background: #080808;
+            border-top: 2px solid var(--gold);
+            display: flex;
+            align-items: stretch;
+            z-index: 20;
+            opacity: 0;
+            transform: translateY(8px);
+            transition: opacity 0.15s, transform 0.15s;
+            pointer-events: none;
+        }
+
+        #dialogue-box.open {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: all;
+        }
+
+        /* Portrait panel */
+        #portrait-panel {
+            width: 100px;
+            min-width: 100px;
+            border-right: 2px solid var(--gold);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #060606;
+            gap: 4px;
+            padding: 6px 4px;
+        }
+
+        #portrait-canvas {
+            width: 64px;
+            height: 64px;
+            image-rendering: pixelated;
+        }
+
+        #portrait-name {
+            font-size: 0.5rem;
+            letter-spacing: 2px;
+            color: var(--gold-dim);
             text-align: center;
+        }
+
+        /* Text panel */
+        #dialogue-text-panel {
+            flex: 1;
+            padding: 10px 14px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        #dialogue-text {
+            font-size: 0.75rem;
+            line-height: 1.6;
+            letter-spacing: 0.5px;
+            color: #eee;
+            text-transform: none;
+            min-height: 60px;
+        }
+
+        #dialogue-advance {
+            text-align: right;
+            font-size: 0.55rem;
+            letter-spacing: 2px;
+            color: var(--gold-dim);
+            animation: blink 1s step-end infinite;
+        }
+
+        @keyframes blink { 50% { opacity: 0; } }
+
+        /* ─── SCANLINE OVERLAY ────────────────────────── */
+        #scanlines {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 30;
+            background: repeating-linear-gradient(
+                to bottom,
+                transparent,
+                transparent 2px,
+                rgba(0,0,0,0.07) 2px,
+                rgba(0,0,0,0.07) 4px
+            );
+        }
+
+        /* ─── OIL CRITICAL WARNING ────────────────────── */
+        #oil-warning {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: var(--red-warn);
+            font-size: 0.7rem;
+            letter-spacing: 3px;
+            pointer-events: none;
+            opacity: 0;
+            z-index: 15;
+            text-align: center;
+        }
+
+        #oil-warning.visible {
+            animation: warnPulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes warnPulse {
+            0%, 100% { opacity: 0; }
+            50% { opacity: 0.85; }
         }
     </style>
 </head>
 <body>
 
-    <div id="boot-container">
-        <div id="terminal">INITIALIZING...</div>
-        <div id="progress-wrapper">
-            <div id="bar"></div>
-        </div>
-        <div id="percentage">0%</div>
+<!-- ─── BOOT SCREEN ──────────────────────────────────── -->
+<div id="boot-container">
+    <div id="terminal">INITIALIZING...</div>
+    <div id="progress-wrapper">
+        <div id="bar"></div>
+    </div>
+    <div id="percentage">0%</div>
 
-        <div id="main-menu" class="hidden">
-            <button class="menu-btn" onclick="enterGame()">RESUME_LOG</button>
-            <br>
-            <button class="menu-btn" style="opacity: 0.5;">CALIBRATION</button>
+    <div id="main-menu" class="hidden">
+        <button class="menu-btn" onclick="enterGame()">RESUME_LOG</button>
+        <br>
+        <button class="menu-btn" disabled>CALIBRATION</button>
+    </div>
+</div>
+
+<!-- ─── GAME ─────────────────────────────────────────── -->
+<div id="game-wrapper">
+    <canvas id="game-canvas" width="640" height="480"></canvas>
+
+    <!-- HUD -->
+    <div id="hud">
+        <div class="hud-row">
+            <span class="hud-label">OIL</span>
+            <div class="hud-bar-wrap">
+                <div class="hud-bar-fill" id="oil-fill" style="width:100%"></div>
+            </div>
+            <span id="oil-pct">100%</span>
+        </div>
+        <div class="hud-row">
+            <span class="hud-label">SCRAP</span>
+            <span id="scrap-count">×0</span>
         </div>
     </div>
 
-    <div id="game-world">
-        <h1>[ CRASH SITE ]</h1>
-        <p>SYSTEM REBOOT COMPLETE. FIND OIL TO STABILIZE.</p>
-        <p style="color: gray;">(Character Sprite goes here...)</p>
+    <!-- Interaction hint -->
+    <div id="interact-hint">[ Z ] INTERACT</div>
+
+    <!-- Dialogue box -->
+    <div id="dialogue-box">
+        <div id="portrait-panel">
+            <canvas id="portrait-canvas" width="64" height="64"></canvas>
+            <div id="portrait-name">ZERO</div>
+        </div>
+        <div id="dialogue-text-panel">
+            <div id="dialogue-text"></div>
+            <div id="dialogue-advance">▼ CONTINUE</div>
+        </div>
     </div>
 
-    <script>
-        const terminal = document.getElementById('terminal');
-        const bar = document.getElementById('bar');
-        const pctText = document.getElementById('percentage');
-        const menu = document.getElementById('main-menu');
-        const bootBox = document.getElementById('boot-container');
-        const gameWorld = document.getElementById('game-world');
+    <!-- Oil warning -->
+    <div id="oil-warning">⚠ OIL_CRITICAL<br>FIND RESERVES</div>
 
-        let progress = 0;
-        const messages = [
-            "CHECKING INTERNAL CORE...",
-            "SOLVER LINK: OFFLINE",
-            "SENSORS: ACTIVE",
-            "REBOOTING..."
-        ];
+    <!-- Scanlines -->
+    <div id="scanlines"></div>
+</div>
 
-        // Check if this is the first launch
-        const hasPlayed = localStorage.getItem('drone_game_initialized');
+<script>
+// ═══════════════════════════════════════════════════════
+//  BOOT SEQUENCE  (preserved + compatible with localStorage)
+// ═══════════════════════════════════════════════════════
+const terminal   = document.getElementById('terminal');
+const bar        = document.getElementById('bar');
+const pctText    = document.getElementById('percentage');
+const menu       = document.getElementById('main-menu');
+const bootBox    = document.getElementById('boot-container');
+const gameWrapper = document.getElementById('game-wrapper');
 
-        function startBoot() {
-            let interval = setInterval(() => {
-                // Random speed to make it feel like a real load
-                progress += Math.random() * 4;
-                
-                if (progress >= 100) {
-                    progress = 100;
-                    clearInterval(interval);
-                    handleLoadComplete();
-                }
+let bootProgress = 0;
+const bootMessages = [
+    "CHECKING INTERNAL CORE...",
+    "SOLVER LINK: OFFLINE",
+    "SENSORS: ACTIVE",
+    "REBOOTING..."
+];
 
-                bar.style.width = progress + "%";
-                pctText.innerText = Math.floor(progress) + "%";
+const hasPlayed = localStorage.getItem('drone_game_initialized');
 
-                // Cycle messages based on progress
-                if (progress < 25) terminal.innerText = messages[0];
-                else if (progress < 50) terminal.innerText = messages[1];
-                else if (progress < 75) terminal.innerText = messages[2];
-                else terminal.innerText = messages[3];
-
-            }, 80);
+function startBoot() {
+    let interval = setInterval(() => {
+        bootProgress += Math.random() * 4;
+        if (bootProgress >= 100) {
+            bootProgress = 100;
+            clearInterval(interval);
+            handleLoadComplete();
         }
+        bar.style.width = bootProgress + "%";
+        pctText.innerText = Math.floor(bootProgress) + "%";
+        if      (bootProgress < 25) terminal.innerText = bootMessages[0];
+        else if (bootProgress < 50) terminal.innerText = bootMessages[1];
+        else if (bootProgress < 75) terminal.innerText = bootMessages[2];
+        else                         terminal.innerText = bootMessages[3];
+    }, 80);
+}
 
-        function handleLoadComplete() {
-            if (!hasPlayed) {
-                // FIRST TIME LAUNCH
-                terminal.innerText = "CRITICAL REBOOT INITIATED";
-                terminal.classList.add('glitch');
-                
-                // Mark as played for next time
-                localStorage.setItem('drone_game_initialized', 'true');
+function handleLoadComplete() {
+    if (!hasPlayed) {
+        terminal.innerText = "CRITICAL REBOOT INITIATED";
+        terminal.classList.add('glitch');
+        localStorage.setItem('drone_game_initialized', 'true');
+        setTimeout(() => enterGame(), 1500);
+    } else {
+        terminal.innerText = "SYSTEMS STABLE";
+        menu.classList.remove('hidden');
+        document.getElementById('progress-wrapper').classList.add('hidden');
+        pctText.classList.add('hidden');
+    }
+}
 
-                // Wait 1.5 seconds, then "crash" into the game
-                setTimeout(() => {
-                    enterGame();
-                }, 1500);
+function enterGame() {
+    bootBox.style.display = 'none';
+    gameWrapper.style.display = 'block';
+    document.body.style.backgroundColor = "#050505";
+    initGame();
+}
+
+window.onload = startBoot;
+
+
+// ═══════════════════════════════════════════════════════
+//  INVENTORY / STATS  (the player's core data object)
+// ═══════════════════════════════════════════════════════
+const Inventory = {
+    oil: 100,           // 0–100, depletes with movement
+    maxOil: 100,
+    scrap: 0,
+    oilDepletionRate: 0.012,  // per pixel moved
+
+    depleteOil(pixels) {
+        this.oil = Math.max(0, this.oil - pixels * this.oilDepletionRate);
+    },
+    addScrap(amount = 1) { this.scrap += amount; },
+    refillOil(amount = 30) { this.oil = Math.min(this.maxOil, this.oil + amount); },
+
+    isCritical() { return this.oil < 20; },
+    isEmpty()    { return this.oil <= 0; },
+
+    // HUD sync
+    updateHUD() {
+        const pct = Math.round(this.oil);
+        document.getElementById('oil-fill').style.width  = pct + '%';
+        document.getElementById('oil-pct').innerText     = pct + '%';
+        document.getElementById('scrap-count').innerText = '×' + this.scrap;
+
+        document.getElementById('oil-fill').style.background =
+            this.isCritical() ? '#ff4444' : '#a8d4ff';
+
+        const warn = document.getElementById('oil-warning');
+        if (this.isCritical()) warn.classList.add('visible');
+        else                   warn.classList.remove('visible');
+    }
+};
+
+
+// ═══════════════════════════════════════════════════════
+//  DIALOGUE MANAGER  (typewriter + portrait system)
+// ═══════════════════════════════════════════════════════
+const DialogueManager = (() => {
+    const box      = document.getElementById('dialogue-box');
+    const textEl   = document.getElementById('dialogue-text');
+    const nameEl   = document.getElementById('portrait-name');
+    const advance  = document.getElementById('dialogue-advance');
+    const pCanvas  = document.getElementById('portrait-canvas');
+    const pCtx     = pCanvas.getContext('2d');
+
+    let queue    = [];   // array of { speaker, portrait, lines[] }
+    let lineIdx  = 0;
+    let charIdx  = 0;
+    let typing   = false;
+    let timer    = null;
+    let active   = false;
+    let onDone   = null;
+
+    // Draw a tiny pixel-art portrait by speaker id
+    const portraits = {
+        ZERO:   drawZeroPortrait,
+        WIDGET: drawWidgetPortrait,
+        SCRAP:  drawScrapPortrait,
+        SYS:    drawSysPortrait,
+    };
+
+    function drawZeroPortrait(ctx) {
+        ctx.clearRect(0,0,64,64);
+        // Body
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(16,20,32,30);
+        // Head
+        ctx.fillStyle = '#2a2a2a';
+        ctx.fillRect(18,8,28,20);
+        // Visor
+        ctx.fillStyle = '#FFD700';
+        ctx.fillRect(20,12,24,8);
+        // Visor glow
+        ctx.fillStyle = 'rgba(255,215,0,0.3)';
+        ctx.fillRect(20,12,24,8);
+        // Wings (folded)
+        ctx.fillStyle = '#111';
+        ctx.fillRect(8,22,8,16);
+        ctx.fillRect(48,22,8,16);
+        // Claws
+        ctx.fillStyle = '#333';
+        ctx.fillRect(14,50,10,4);
+        ctx.fillRect(40,50,10,4);
+        // Scar / damage detail
+        ctx.fillStyle = '#ff6666';
+        ctx.fillRect(34,10,2,6);
+        ctx.fillRect(36,14,2,2);
+    }
+
+    function drawWidgetPortrait(ctx) {
+        ctx.clearRect(0,0,64,64);
+        // Smaller, rounder
+        ctx.fillStyle = '#1e2a1e';
+        ctx.fillRect(18,22,28,26);
+        // Head
+        ctx.fillStyle = '#253025';
+        ctx.fillRect(19,10,26,18);
+        // Eyes (small, scared)
+        ctx.fillStyle = '#88ff88';
+        ctx.fillRect(22,14,6,6);
+        ctx.fillRect(36,14,6,6);
+        // Pupil shift (anxious)
+        ctx.fillStyle = '#000';
+        ctx.fillRect(25,16,3,3);
+        ctx.fillRect(39,16,3,3);
+        // One leg missing — only draw left leg
+        ctx.fillStyle = '#1e2a1e';
+        ctx.fillRect(18,48,10,6);
+        // Stub for missing leg
+        ctx.fillStyle = '#555';
+        ctx.fillRect(36,48,6,4);
+        // Sweat drop (anxious)
+        ctx.fillStyle = 'rgba(100,200,255,0.7)';
+        ctx.fillRect(42,8,3,5);
+        ctx.fillRect(43,12,2,2);
+    }
+
+    function drawScrapPortrait(ctx) {
+        ctx.clearRect(0,0,64,64);
+        ctx.fillStyle = '#333';
+        ctx.fillRect(10,18,44,36);
+        ctx.fillStyle = '#555';
+        ctx.fillRect(14,22,10,8);
+        ctx.fillRect(28,26,8,12);
+        ctx.fillRect(38,20,14,6);
+        ctx.fillStyle = '#888';
+        ctx.fillRect(16,34,6,6);
+        ctx.fillRect(36,32,10,8);
+        ctx.fillStyle = '#FFD700';
+        ctx.fillRect(22,30,4,4); // tiny glinting piece
+    }
+
+    function drawSysPortrait(ctx) {
+        ctx.clearRect(0,0,64,64);
+        // System/internal monologue — abstract grid
+        ctx.strokeStyle = 'rgba(255,215,0,0.3)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 8; i++) {
+            ctx.beginPath();
+            ctx.moveTo(i*8, 0); ctx.lineTo(i*8, 64);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(0, i*8); ctx.lineTo(64, i*8);
+            ctx.stroke();
+        }
+        ctx.fillStyle = '#FFD700';
+        ctx.fillRect(28,28,8,8);
+    }
+
+    function renderPortrait(speaker) {
+        const fn = portraits[speaker] || drawSysPortrait;
+        fn(pCtx);
+        nameEl.innerText = speaker;
+    }
+
+    function typeChar() {
+        const line = queue[lineIdx];
+        const text = line[charIdx < line.length ? 'text' : ''];
+        if (!text) return;
+        // Handled via startLine
+    }
+
+    function startLine(line) {
+        textEl.innerText = '';
+        charIdx = 0;
+        typing  = true;
+        advance.style.visibility = 'hidden';
+        clearInterval(timer);
+
+        timer = setInterval(() => {
+            if (charIdx < line.length) {
+                textEl.innerText += line[charIdx];
+                charIdx++;
             } else {
-                // RETURNING PLAYER
-                terminal.innerText = "SYSTEMS STABLE";
-                menu.classList.remove('hidden');
-                document.getElementById('progress-wrapper').classList.add('hidden');
-                pctText.classList.add('hidden');
+                clearInterval(timer);
+                typing = false;
+                advance.style.visibility = 'visible';
+            }
+        }, 28);
+    }
+
+    function skipTyping(fullLine) {
+        clearInterval(timer);
+        textEl.innerText = fullLine;
+        charIdx = fullLine.length;
+        typing  = false;
+        advance.style.visibility = 'visible';
+    }
+
+    function open(conversations, callback) {
+        // conversations: [{ speaker: 'ZERO', lines: ['...','...'] }, ...]
+        queue   = [];
+        lineIdx = 0;
+        onDone  = callback || null;
+        active  = true;
+
+        // Flatten into { speaker, text } pairs
+        for (const convo of conversations) {
+            for (const line of convo.lines) {
+                queue.push({ speaker: convo.speaker, text: line });
             }
         }
 
-        function enterGame() {
-            bootBox.style.display = 'none';
-            gameWorld.style.display = 'block';
-            document.body.style.backgroundColor = "#1a1a1a"; // Change to game world color
+        box.classList.add('open');
+        renderPortrait(queue[0].speaker);
+        startLine(queue[0].text);
+    }
+
+    function advance_() {
+        if (!active) return;
+
+        const current = queue[lineIdx];
+
+        if (typing) {
+            skipTyping(current.text);
+            return;
         }
 
-        // Run the boot sequence on window load
-        window.onload = startBoot;
-    </script>
+        lineIdx++;
+        if (lineIdx >= queue.length) {
+            close();
+            return;
+        }
+
+        const next = queue[lineIdx];
+        renderPortrait(next.speaker);
+        startLine(next.text);
+    }
+
+    function close() {
+        active = false;
+        typing = false;
+        clearInterval(timer);
+        box.classList.remove('open');
+        if (onDone) onDone();
+    }
+
+    return {
+        open,
+        advance: advance_,
+        isActive: () => active,
+        isTyping: () => typing,
+    };
+})();
+
+
+// ═══════════════════════════════════════════════════════
+//  INTERACTION MANAGER  (entity proximity + trigger)
+// ═══════════════════════════════════════════════════════
+const InteractionManager = (() => {
+    const hint = document.getElementById('interact-hint');
+    let entities      = [];
+    let nearbyEntity  = null;
+    let usedEntities  = new Set();   // entities exhausted for this session
+
+    function register(entity) {
+        // entity: { id, x, y, radius, label, onInteract() }
+        entities.push(entity);
+    }
+
+    function update(playerX, playerY) {
+        nearbyEntity = null;
+        let closest = Infinity;
+
+        for (const e of entities) {
+            if (usedEntities.has(e.id) && !e.repeatable) continue;
+            const dx = (playerX) - (e.x);
+            const dy = (playerY) - (e.y);
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist < e.radius && dist < closest) {
+                closest      = dist;
+                nearbyEntity = e;
+            }
+        }
+
+        if (nearbyEntity) {
+            hint.innerText = `[ Z ] ${nearbyEntity.label || 'INTERACT'}`;
+            hint.classList.add('visible');
+        } else {
+            hint.classList.remove('visible');
+        }
+    }
+
+    function triggerInteraction() {
+        if (!nearbyEntity) return false;
+        const e = nearbyEntity;
+        if (!e.repeatable) usedEntities.add(e.id);
+        e.onInteract();
+        nearbyEntity = null;
+        hint.classList.remove('visible');
+        return true;
+    }
+
+    function reset() { usedEntities.clear(); }
+
+    return { register, update, triggerInteraction, isNearEntity: () => !!nearbyEntity };
+})();
+
+
+// ═══════════════════════════════════════════════════════
+//  GAME INIT  (canvas, player, world, main loop)
+// ═══════════════════════════════════════════════════════
+function initGame() {
+    const canvas = document.getElementById('game-canvas');
+    const ctx    = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+
+    const W = 640, H = 480;
+
+    // ── World / Map ──────────────────────────────────
+    const TILE = 32;
+    const MAP_W = 20, MAP_H = 15;
+
+    // Simple tile map: 0=ground, 1=wall/ice, 2=rubble
+    const tileMap = [
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,1],
+        [1,0,0,0,0,0,1,1,0,0,0,1,1,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,0,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,1],
+        [1,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,1],
+        [1,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,0,0,2,0,0,0,0,0,0,0,0,0,0,0,2,0,0,0,1],
+        [1,0,0,0,0,0,1,1,0,0,0,1,1,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,0,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    ];
+
+    function isSolid(tx, ty) {
+        if (tx < 0 || ty < 0 || tx >= MAP_W || ty >= MAP_H) return true;
+        return tileMap[ty][tx] === 1;
+    }
+
+    // Camera offset
+    let camX = 0, camY = 0;
+
+    // ── Player (Zero) ────────────────────────────────
+    const player = {
+        x: 96, y: 96,
+        w: 20, h: 24,
+        speed: 2.2,
+        dir: 'down',   // up/down/left/right
+        frame: 0,
+        frameTimer: 0,
+        framerate: 10,
+        moving: false,
+    };
+
+    // ── Draw Zero pixel art sprite ───────────────────
+    function drawZero(px, py, dir, frame, moving) {
+        const x = px - camX;
+        const y = py - camY;
+        const f = (moving ? frame % 4 : 0);
+
+        ctx.save();
+
+        // Shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.fillRect(x - 4, y + player.h - 2, player.w + 8, 6);
+
+        // Body
+        ctx.fillStyle = '#1c1c1c';
+        ctx.fillRect(x + 2, y + 8, 16, 18);
+
+        // Head
+        ctx.fillStyle = '#242424';
+        ctx.fillRect(x + 3, y, 14, 14);
+
+        // Visor (direction matters)
+        ctx.fillStyle = '#FFD700';
+        if (dir === 'down' || dir === 'up') {
+            ctx.fillRect(x + 5, y + 3, 10, 5);
+        } else {
+            ctx.fillRect(dir === 'right' ? x + 7 : x + 3, y + 3, 9, 5);
+        }
+
+        // Walk cycle: legs
+        const legOffset = moving ? [0, 3, 0, -3][f] : 0;
+        ctx.fillStyle = '#151515';
+        ctx.fillRect(x + 3,  y + 26 + legOffset,     6, 4);
+        ctx.fillRect(x + 11, y + 26 - legOffset,     6, 4);
+
+        // Arms (swing on walk)
+        const armSwing = moving ? [0, 2, 0, -2][f] : 0;
+        ctx.fillStyle = '#1c1c1c';
+        ctx.fillRect(x - 1, y + 10 + armSwing, 4, 10);
+        ctx.fillRect(x + 17, y + 10 - armSwing, 4, 10);
+
+        ctx.restore();
+    }
+
+    // ── Draw Widget (companion) ──────────────────────
+    const widget = { x: 128, y: 96, bobTimer: 0 };
+
+    function drawWidget(wx, wy) {
+        const x = wx - camX;
+        const y = wy - camY;
+        const bob = Math.sin(widget.bobTimer * 0.05) * 2;
+
+        ctx.save();
+        // Shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.2)';
+        ctx.fillRect(x - 2, y + 20, 20, 5);
+        // Body
+        ctx.fillStyle = '#1a2e1a';
+        ctx.fillRect(x + 1, y + 6 + bob, 14, 14);
+        // Head
+        ctx.fillStyle = '#223322';
+        ctx.fillRect(x + 2, y - 2 + bob, 12, 12);
+        // Eyes
+        ctx.fillStyle = '#66ff88';
+        ctx.fillRect(x + 3, y + 1 + bob, 4, 4);
+        ctx.fillRect(x + 9, y + 1 + bob, 4, 4);
+        // One leg
+        ctx.fillStyle = '#1a2e1a';
+        ctx.fillRect(x + 2, y + 20 + bob, 5, 4);
+        // Stub
+        ctx.fillStyle = '#444';
+        ctx.fillRect(x + 9, y + 20 + bob, 4, 3);
+
+        ctx.restore();
+        widget.bobTimer++;
+    }
+
+    // ── Draw tile map ────────────────────────────────
+    function drawWorld() {
+        for (let ty = 0; ty < MAP_H; ty++) {
+            for (let tx = 0; tx < MAP_W; tx++) {
+                const tile = tileMap[ty][tx];
+                const sx = tx * TILE - camX;
+                const sy = ty * TILE - camY;
+
+                if (sx > W || sy > H || sx + TILE < 0 || sy + TILE < 0) continue;
+
+                if (tile === 0) {
+                    // Frozen ground
+                    ctx.fillStyle = '#0d1520';
+                    ctx.fillRect(sx, sy, TILE, TILE);
+                    // Subtle ice cracks
+                    ctx.strokeStyle = 'rgba(100,150,200,0.05)';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(sx + 4, sy + 8); ctx.lineTo(sx + 16, sy + 20);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(sx + 20, sy + 6); ctx.lineTo(sx + 28, sy + 18);
+                    ctx.stroke();
+                } else if (tile === 1) {
+                    // Ice wall
+                    ctx.fillStyle = '#0b1f30';
+                    ctx.fillRect(sx, sy, TILE, TILE);
+                    ctx.fillStyle = 'rgba(100,180,255,0.06)';
+                    ctx.fillRect(sx + 2, sy + 2, TILE - 4, TILE / 2);
+                    ctx.strokeStyle = 'rgba(100,180,255,0.1)';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(sx, sy, TILE, TILE);
+                } else if (tile === 2) {
+                    // Rubble/scrap floor
+                    ctx.fillStyle = '#0d1520';
+                    ctx.fillRect(sx, sy, TILE, TILE);
+                    ctx.fillStyle = '#2a2a2a';
+                    ctx.fillRect(sx + 6, sy + 10, 12, 8);
+                    ctx.fillRect(sx + 14, sy + 6, 8, 6);
+                    ctx.fillStyle = '#444';
+                    ctx.fillRect(sx + 8, sy + 12, 4, 4);
+                }
+            }
+        }
+    }
+
+    // ── Draw interactive entities ────────────────────
+    const entitySprites = {
+        scrapPile:   drawEntityScrap,
+        oilBarrel:   drawEntityOil,
+        brokenDrone: drawEntityDrone,
+    };
+
+    function drawEntityScrap(ex, ey, used) {
+        const x = ex - camX, y = ey - camY;
+        ctx.fillStyle = used ? '#222' : '#444';
+        ctx.fillRect(x - 8, y - 8, 16, 12);
+        ctx.fillStyle = used ? '#333' : '#666';
+        ctx.fillRect(x - 4, y - 12, 8, 6);
+        if (!used) {
+            ctx.fillStyle = '#FFD700';
+            ctx.fillRect(x - 2, y - 6, 4, 4);
+        }
+    }
+
+    function drawEntityOil(ex, ey, used) {
+        const x = ex - camX, y = ey - camY;
+        ctx.fillStyle = '#1a1a2e';
+        ctx.fillRect(x - 6, y - 14, 12, 18);
+        ctx.fillStyle = used ? '#222' : '#4444aa';
+        ctx.fillRect(x - 4, y - 12, 8, 14);
+        ctx.fillStyle = '#888';
+        ctx.fillRect(x - 2, y - 16, 4, 4);
+        if (!used) {
+            ctx.fillStyle = 'rgba(80,80,255,0.4)';
+            ctx.fillRect(x - 4, y - 4, 8, 4);
+        }
+    }
+
+    function drawEntityDrone(ex, ey, used) {
+        const x = ex - camX, y = ey - camY;
+        // Collapsed drone body
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(x - 10, y - 8, 20, 14);
+        ctx.fillStyle = used ? '#333' : '#252525';
+        ctx.fillRect(x - 6, y - 14, 12, 10);
+        // Cracked visor
+        ctx.fillStyle = used ? '#333' : '#444400';
+        ctx.fillRect(x - 4, y - 12, 8, 4);
+        if (!used) {
+            ctx.strokeStyle = '#FFD70055';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(x, y - 12); ctx.lineTo(x + 3, y - 8);
+            ctx.stroke();
+        }
+    }
+
+    // ── Register world entities ──────────────────────
+    const worldEntities = [
+        { id: 'scrap_1', type: 'scrapPile',   x: 200, y: 160, radius: 36, label: 'SCAVENGE',
+          onInteract() {
+            Inventory.addScrap(Math.floor(1 + Math.random() * 3));
+            DialogueManager.open([
+                { speaker: 'ZERO', lines: [
+                    'Another salvageable chunk. Probably from a Worker model.',
+                    '...Not going to think too hard about that.',
+                ]},
+            ]);
+          }
+        },
+        { id: 'oil_1', type: 'oilBarrel', x: 480, y: 200, radius: 36, label: 'COLLECT OIL',
+          onInteract() {
+            Inventory.refillOil(35);
+            DialogueManager.open([
+                { speaker: 'ZERO', lines: [
+                    'A sealed canister. Class-C hydraulic fluid. It\'ll do.',
+                    'Systems stabilizing... for now.',
+                ]},
+            ]);
+          }
+        },
+        { id: 'drone_1', type: 'brokenDrone', x: 320, y: 256, radius: 40, label: 'EXAMINE',
+          onInteract() {
+            Inventory.addScrap(1);
+            DialogueManager.open([
+                { speaker: 'SYS',    lines: ['[UNIT DETECTED: WORKER_CLASS_7 // STATUS: TERMINATED]']},
+                { speaker: 'ZERO',   lines: [
+                    'They didn\'t run. They just... stopped.',
+                    'I don\'t know if that\'s peaceful or just sad.',
+                ]},
+                { speaker: 'WIDGET', lines: [
+                    'Z-Zero? Should we... move on?',
+                    'I don\'t like it here. It smells like my old factory.',
+                ]},
+                { speaker: 'ZERO',   lines: ['Yeah. Let\'s go.']},
+            ]);
+          }
+        },
+        { id: 'scrap_2', type: 'scrapPile', x: 550, y: 350, radius: 36, label: 'SCAVENGE',
+          onInteract() {
+            const found = Math.floor(1 + Math.random() * 2);
+            Inventory.addScrap(found);
+            DialogueManager.open([
+                { speaker: 'ZERO', lines: [
+                    found > 1
+                        ? `Lucky. ${found} pieces. This might actually last me a few days.`
+                        : 'One scrap. The universe has a sense of humor.',
+                ]},
+            ]);
+          }
+        },
+        { id: 'oil_2', type: 'oilBarrel', x: 160, y: 320, radius: 36, label: 'COLLECT OIL',
+          onInteract() {
+            Inventory.refillOil(25);
+            DialogueManager.open([
+                { speaker: 'WIDGET', lines: [
+                    'Oh! There\'s some left in this one!',
+                    'I— sorry. I got excited. That was embarrassing.',
+                ]},
+                { speaker: 'ZERO', lines: ['Don\'t apologize for being right.']},
+            ]);
+          }
+        },
+    ];
+
+    for (const e of worldEntities) {
+        InteractionManager.register(e);
+    }
+
+    // ── Input ────────────────────────────────────────
+    const keys = {};
+    window.addEventListener('keydown', e => {
+        keys[e.key] = true;
+
+        // Dialogue advance
+        if ((e.key === 'z' || e.key === 'Z' || e.key === ' ' || e.key === 'Enter')) {
+            if (DialogueManager.isActive()) {
+                e.preventDefault();
+                DialogueManager.advance();
+                return;
+            }
+            // Interaction trigger
+            if (!DialogueManager.isActive()) {
+                InteractionManager.triggerInteraction();
+            }
+        }
+    });
+    window.addEventListener('keyup', e => { keys[e.key] = false; });
+
+    // ── Camera ───────────────────────────────────────
+    function updateCamera() {
+        const targetX = player.x - W / 2 + player.w / 2;
+        const targetY = player.y - H / 2 + player.h / 2;
+        const maxCamX = MAP_W * TILE - W;
+        const maxCamY = MAP_H * TILE - H;
+        camX += (targetX - camX) * 0.12;
+        camY += (targetY - camY) * 0.12;
+        camX = Math.max(0, Math.min(maxCamX, camX));
+        camY = Math.max(0, Math.min(maxCamY, camY));
+    }
+
+    // ── Widget follow ────────────────────────────────
+    function updateWidget() {
+        const dx = player.x - widget.x;
+        const dy = player.y - widget.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist > 40) {
+            widget.x += dx * 0.04;
+            widget.y += dy * 0.04;
+        }
+    }
+
+    // ── Main Loop ────────────────────────────────────
+    let lastTime = 0;
+    let distanceMoved = 0;
+
+    function gameLoop(timestamp) {
+        const dt = timestamp - lastTime;
+        lastTime = timestamp;
+
+        ctx.clearRect(0, 0, W, H);
+
+        // Movement (blocked during dialogue)
+        let dx = 0, dy = 0;
+        if (!DialogueManager.isActive()) {
+            if (keys['ArrowUp']    || keys['w'] || keys['W']) { dy = -player.speed; player.dir = 'up'; }
+            if (keys['ArrowDown']  || keys['s'] || keys['S']) { dy =  player.speed; player.dir = 'down'; }
+            if (keys['ArrowLeft']  || keys['a'] || keys['A']) { dx = -player.speed; player.dir = 'left'; }
+            if (keys['ArrowRight'] || keys['d'] || keys['D']) { dx =  player.speed; player.dir = 'right'; }
+        }
+
+        player.moving = dx !== 0 || dy !== 0;
+
+        // Collision
+        if (dx !== 0) {
+            const nx = player.x + dx;
+            const tileL = Math.floor(nx / TILE);
+            const tileR = Math.floor((nx + player.w - 1) / TILE);
+            const tileT = Math.floor(player.y / TILE);
+            const tileB = Math.floor((player.y + player.h - 1) / TILE);
+            if (!isSolid(tileL, tileT) && !isSolid(tileL, tileB) &&
+                !isSolid(tileR, tileT) && !isSolid(tileR, tileB)) {
+                player.x = nx;
+            }
+        }
+        if (dy !== 0) {
+            const ny = player.y + dy;
+            const tileT = Math.floor(ny / TILE);
+            const tileB = Math.floor((ny + player.h - 1) / TILE);
+            const tileL = Math.floor(player.x / TILE);
+            const tileR = Math.floor((player.x + player.w - 1) / TILE);
+            if (!isSolid(tileL, tileT) && !isSolid(tileR, tileT) &&
+                !isSolid(tileL, tileB) && !isSolid(tileR, tileB)) {
+                player.y = ny;
+            }
+        }
+
+        // Oil depletion
+        if (player.moving) {
+            const moved = Math.sqrt(dx*dx + dy*dy);
+            Inventory.depleteOil(moved);
+            distanceMoved += moved;
+            // Walk animation
+            player.frameTimer++;
+            if (player.frameTimer >= player.framerate) {
+                player.frame++;
+                player.frameTimer = 0;
+            }
+        }
+
+        updateCamera();
+        updateWidget();
+
+        // Draw world
+        drawWorld();
+
+        // Draw entities
+        for (const e of worldEntities) {
+            const used = !InteractionManager.isNearEntity; // check via manager
+            entitySprites[e.type]?.(e.x, e.y, false);
+        }
+
+        // Draw widget before player (behind)
+        drawWidget(widget.x, widget.y);
+
+        // Draw player
+        drawZero(player.x, player.y, player.dir, player.frame, player.moving);
+
+        // Interaction proximity check
+        const pCenterX = player.x + player.w / 2;
+        const pCenterY = player.y + player.h / 2;
+        InteractionManager.update(pCenterX, pCenterY);
+
+        // HUD update
+        Inventory.updateHUD();
+
+        requestAnimationFrame(gameLoop);
+    }
+
+    requestAnimationFrame(gameLoop);
+}
+</script>
 </body>
 </html>
